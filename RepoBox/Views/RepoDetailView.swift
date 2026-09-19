@@ -9,21 +9,23 @@ struct RepoDetailView: View {
     @State private var showPicker = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            if busy { ProgressView().padding(.top, 8) }
-            Text(status)
-                .font(.footnote)
-                .foregroundColor(.secondary)
-                .padding(.horizontal)
-                .padding(.vertical, 4)
+        List {
+            if busy || !status.isEmpty {
+                Section {
+                    HStack(spacing: 8) {
+                        if busy { ProgressView() }
+                        Text(status)
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
 
-            List {
-                ForEach(groupedKeys, id: \.self) { folder in
-                    Section(header: Text(folder.isEmpty ? "/" : folder)) {
-                        ForEach(grouped[folder] ?? [], id: \.self) { f in
-                            Text((f as NSString).lastPathComponent)
-                                .font(.system(.footnote, design: .monospaced))
-                        }
+            ForEach(groupedKeys, id: \.self) { folder in
+                Section(header: Text(folder.isEmpty ? "根目录" : folder)) {
+                    ForEach(grouped[folder] ?? [], id: \.self) { f in
+                        Text((f as NSString).lastPathComponent)
+                            .font(.system(.footnote, design: .monospaced))
                     }
                 }
             }
@@ -56,7 +58,11 @@ struct RepoDetailView: View {
     }
 
     private var groupedKeys: [String] {
-        grouped.keys.sorted()
+        grouped.keys.sorted { a, b in
+            if a.isEmpty { return true }
+            if b.isEmpty { return false }
+            return a.localizedStandardCompare(b) == .orderedAscending
+        }
     }
 
     // MARK: - API
