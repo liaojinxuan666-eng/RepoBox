@@ -1,0 +1,40 @@
+name: Build RepoBox
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.2.app
+
+      - name: Archive
+        run: |
+          xcodebuild archive \
+            -project RepoBox.xcodeproj \
+            -scheme RepoBox \
+            -archivePath $RUNNER_TEMP/RepoBox.xcarchive \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Pack IPA
+        run: |
+          mkdir -p $RUNNER_TEMP/Payload
+          cp -R $RUNNER_TEMP/RepoBox.xcarchive/Products/Applications/RepoBox.app $RUNNER_TEMP/Payload/
+          cd $RUNNER_TEMP
+          zip -r RepoBox.ipa Payload
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: RepoBox-ipa
+          path: ${{ runner.temp }}/RepoBox.ipa
