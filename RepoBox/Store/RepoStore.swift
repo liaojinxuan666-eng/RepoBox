@@ -17,9 +17,16 @@ struct Repo: Codable, Identifiable {
 
 final class RepoStore: ObservableObject {
     @Published var repos: [Repo] = []
-    private let key = "repobox.repos"
+    @Published var username: String = ""
+    @Published var isLoggedIn: Bool = false
 
-    init() { load() }
+    private let key = "repobox.repos"
+    private let userKey = "repobox.username"
+
+    init() {
+        load()
+        isLoggedIn = Keychain.githubToken != nil
+    }
 
     func add(_ r: Repo) { repos.append(r); save() }
 
@@ -27,6 +34,19 @@ final class RepoStore: ObservableObject {
         try? FileManager.default.removeItem(at: r.localDir)
         repos.removeAll { $0.id == r.id }
         save()
+    }
+
+    func setUsername(_ n: String) {
+        username = n
+        UserDefaults.standard.set(n, forKey: userKey)
+        isLoggedIn = true
+    }
+
+    func logout() {
+        Keychain.githubToken = nil
+        username = ""
+        isLoggedIn = false
+        UserDefaults.standard.removeObject(forKey: userKey)
     }
 
     private func save() {
@@ -40,5 +60,6 @@ final class RepoStore: ObservableObject {
            let r = try? JSONDecoder().decode([Repo].self, from: d) {
             repos = r
         }
+        username = UserDefaults.standard.string(forKey: userKey) ?? ""
     }
 }
