@@ -10,8 +10,12 @@ struct RepoDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if busy { ProgressView().padding() }
-            Text(status).font(.footnote).foregroundColor(.secondary).padding()
+            if busy { ProgressView().padding(.top, 8) }
+            Text(status)
+                .font(.footnote)
+                .foregroundColor(.secondary)
+                .padding(.horizontal)
+                .padding(.vertical, 4)
 
             List(files, id: \.self) { f in
                 Text(f).font(.system(.footnote, design: .monospaced))
@@ -36,7 +40,7 @@ struct RepoDetailView: View {
     }
 
     private var api: GitHubAPI {
-        GitHubAPI(token: Keychain.load("\(repo.owner)/\(repo.name)") ?? "",
+        GitHubAPI(token: Keychain.githubToken ?? "",
                   owner: repo.owner, repo: repo.name, branch: repo.branch)
     }
 
@@ -46,7 +50,9 @@ struct RepoDetailView: View {
         if let en = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: nil) {
             for case let url as URL in en {
                 if url.hasDirectoryPath { continue }
-                out.append(url.path.replacingOccurrences(of: dir.path + "/", with: ""))
+                let rel = url.path.replacingOccurrences(of: dir.path + "/", with: "")
+                if rel.hasPrefix(".git/") { continue }
+                out.append(rel)
             }
         }
         files = out.sorted()
