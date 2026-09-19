@@ -6,8 +6,21 @@ struct RepoBoxApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RepoListView()
-                .environmentObject(store)
+            RootView().environmentObject(store)
+        }
+    }
+}
+
+struct RootView: View {
+    @EnvironmentObject var store: RepoStore
+
+    var body: some View {
+        Group {
+            if store.isLoggedIn {
+                RepoListView()
+            } else {
+                LoginView()
+            }
         }
     }
 }
