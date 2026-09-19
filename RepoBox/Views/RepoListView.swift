@@ -2,7 +2,7 @@ import SwiftUI
 
 struct RepoListView: View {
     @EnvironmentObject var store: RepoStore
-    @State private var showAdd = false
+    @State private var showPicker = false
 
     var body: some View {
         NavigationView {
@@ -21,15 +21,17 @@ struct RepoListView: View {
             }
             .navigationTitle("RepoBox")
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("退出") { store.logout() }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button { showAdd = true } label: {
+                    Button { showPicker = true } label: {
                         Image(systemName: "plus")
                     }
                 }
             }
-            .sheet(isPresented: $showAdd) {
-                AddRepoView()
-                    .environmentObject(store)
+            .sheet(isPresented: $showPicker) {
+                RemoteRepoPickerView().environmentObject(store)
             }
         }
     }
