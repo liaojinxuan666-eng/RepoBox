@@ -17,8 +17,15 @@ struct RepoDetailView: View {
                 .padding(.horizontal)
                 .padding(.vertical, 4)
 
-            List(files, id: \.self) { f in
-                Text(f).font(.system(.footnote, design: .monospaced))
+            List {
+                ForEach(groupedKeys, id: \.self) { folder in
+                    Section(header: Text(folder.isEmpty ? "/" : folder)) {
+                        ForEach(grouped[folder] ?? [], id: \.self) { f in
+                            Text((f as NSString).lastPathComponent)
+                                .font(.system(.footnote, design: .monospaced))
+                        }
+                    }
+                }
             }
         }
         .navigationTitle("\(repo.owner)/\(repo.name)")
@@ -39,18 +46,34 @@ struct RepoDetailView: View {
         .task { refreshFiles() }
     }
 
+    // MARK: - 分组
+
+    private var grouped: [String: [String]] {
+        Dictionary(grouping: files) { f in
+            let comps = f.split(separator: "/")
+            return comps.count > 1 ? comps.dropLast().joined(separator: "/") : ""
+        }
+    }
+
+    private var groupedKeys: [String] {
+        grouped.keys.sorted()
+    }
+
+    // MARK: - API
+
     private var api: GitHubAPI {
         GitHubAPI(token: Keychain.githubToken ?? "",
                   owner: repo.owner, repo: repo.name, branch: repo.branch)
     }
 
     private func refreshFiles() {
-        let dir = repo.localDir
+        let dir = repo.localDir.resolvingSymlinksInPath()
         var out: [String] = []
         if let en = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: nil) {
             for case let url as URL in en {
                 if url.hasDirectoryPath { continue }
-                let rel = url.path.replacingOccurrences(of: dir.path + "/", with: "")
+                let rel = url.resolvingSymlinksInPath().path
+                    .replacingOccurrences(of: dir.path + "/", with: "")
                 if rel.hasPrefix(".git/") { continue }
                 out.append(rel)
             }
