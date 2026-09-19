@@ -8,7 +8,7 @@ struct RepoListView: View {
         NavigationView {
             List {
                 ForEach(store.repos) { repo in
-                    NavigationLink(destination: Text("\(repo.owner)/\(repo.name)")) {
+                    NavigationLink(destination: RepoDetailView(repo: repo)) {
                         VStack(alignment: .leading) {
                             Text("\(repo.owner)/\(repo.name)")
                             Text(repo.branch).font(.caption).foregroundColor(.secondary)
