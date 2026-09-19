@@ -1,5 +1,6 @@
 import Foundation
 
+// MARK: - 单个仓库操作（用全局 PAT）
 struct GitHubAPI {
     let token: String
     let owner: String
@@ -19,7 +20,7 @@ struct GitHubAPI {
         return r
     }
 
-    // 下载 zipball 到 dir
+    // 下载 zipball 解压到 dir
     func clone(to dir: URL) async throws {
         var r = req("/repos/\(owner)/\(repo)/zipball/\(branch)")
         r.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
@@ -67,7 +68,7 @@ struct GitHubAPI {
         try check(resp)
     }
 
-    // 把本地目录同步到远程（按 path 全量对比）
+    // 把本地目录同步到远程
     func sync(localDir: URL, message: String,
               progress: @escaping (String) -> Void) async throws {
         let remote = try await remoteTree()
@@ -81,13 +82,11 @@ struct GitHubAPI {
             if let d = try? Data(contentsOf: url) { local[rel] = d }
         }
 
-        // 新增 / 修改
         for (path, data) in local {
             progress("上传 \(path)")
             try await putFile(path: path, data: data, sha: remote[path], message: message)
         }
 
-        // 删除
         for (path, sha) in remote where local[path] == nil {
             progress("删除 \(path)")
             try await deleteFile(path: path, sha: sha, message: "delete \(path)")
@@ -103,6 +102,54 @@ struct GitHubAPI {
         guard (200..<300).contains(h.statusCode) else {
             throw NSError(domain: "RepoBox", code: h.statusCode,
                           userInfo: [NSLocalizedDescriptionKey: "HTTP \(h.statusCode)"])
+        }
+    }
+}
+
+// MARK: - 账号级操作（登录、列仓库）
+struct GitHubClient {
+    let token: String
+
+    private func req(_ path: String) -> URLRequest {
+        var r = URLRequest(url: URL(string: "https://api.github.com\(path)")!)
+        r.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        r.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        r.setValue("RepoBox", forHTTPHeaderField: "User-Agent")
+        return r
+    }
+
+    // 验证 token，返回用户名
+    func validate() async throws -> String {
+        let (data, resp) = try await URLSession.shared.data(for: req("/user"))
+        guard let h = resp as? HTTPURLResponse, h.statusCode == 200 else {
+            throw NSError(domain: "RepoBox", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "PAT 无效"])
+        }
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        return json?["login"] as? String ?? "unknown"
+    }
+
+    // 列出当前用户所有仓库
+    func listRepos() async throws -> [RemoteRepo] {
+        let (data, resp) = try await URLSession.shared.data(
+            for: req("/user/repos?per_page=100&sort=updated"))
+        guard let h = resp as? HTTPURLResponse, h.statusCode == 200 else {
+            throw NSError(domain: "RepoBox", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "拉仓库失败"])
+        }
+        let arr = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] ?? []
+        return arr.compactMap { item in
+            guard let id = item["id"] as? Int,
+                  let name = item["name"] as? String,
+                  let owner = (item["owner"] as? [String: Any])?["login"] as? String
+            else { return nil }
+            return RemoteRepo(
+                githubID: id,
+                owner: owner,
+                name: name,
+                defaultBranch: item["default_branch"] as? String ?? "main",
+                isPrivate: item["private"] as? Bool ?? false
+            )
         }
     }
 }
