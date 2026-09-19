@@ -36,4 +36,13 @@ enum Keychain {
         ]
         SecItemDelete(q as CFDictionary)
     }
+
+    // 全局 PAT
+    static var githubToken: String? {
+        get { load("repobox.token") }
+        set {
+            if let v = newValue { save("repobox.token", v) }
+            else { delete("repobox.token") }
+        }
+    }
 }
